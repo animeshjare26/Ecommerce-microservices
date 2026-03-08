@@ -1,0 +1,13 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  profiles:
+    active: native # For simplicity, using filesystem instead of Git repository
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/config/ # Where other services configs are stored
