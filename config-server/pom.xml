@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Config Server POM (The "Filing Cabinet" Supply Requisition)
+  
+  WHY THIS EXISTS:
+  This pulls in `spring-cloud-config-server`, which turns this application into a centralized 
+  configuration provider for all other microservices.
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>

@@ -10,9 +10,23 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * ProductService (The Warehouse Foreman)
+ * 
+ * WHY THIS EXISTS:
+ * This service contains the actual business logic for managing products. 
+ * While the ProductController (Receptionist) handles HTTP stuff, this class handles the real work: 
+ * checking if there is enough stock in the database (Filing Cabinet), reserving items, 
+ * and throwing errors if something is out of stock.
+ * 
+ * WHY THIS EXISTS:
+ * This layer handles data mapping, ensuring inventory doesn't drop below zero, 
+ * and querying the database via the Repository.
+ */
 @Service
 @RequiredArgsConstructor
 public class ProductService {
+    
     private final ProductRepository productRepository;
 
     public ProductResponseDto addProduct(ProductRequestDto requestDto) {
@@ -31,8 +45,13 @@ public class ProductService {
         return mapToResponseDto(product);
     }
 
+    /**
+     * E-COMMERCE USE CASE: 
+     * Filtering out products that are out of stock. We do this at the database query level 
+     * (using findByQuantityGreaterThan) rather than fetching all products and filtering them in Java. 
+     * This is much more memory efficient.
+     */
     public List<ProductResponseDto> getAllAvailableProducts() {
-        // E-commerce: Only show products in stock
         return productRepository.findByQuantityGreaterThan(0)
                 .stream()
                 .map(this::mapToResponseDto)
@@ -51,11 +70,20 @@ public class ProductService {
         return mapToResponseDto(updatedProduct);
     }
 
-    // E-commerce specific: reduce inventory gracefully
+    /**
+     * E-COMMERCE SPECIFIC: Safely reducing inventory.
+     * 
+     * RACE CONDITIONS WARNING:
+     * In a high-traffic production system, doing this simply via Java logic can lead to 
+     * negative inventory if two users buy the last item at the exact same millisecond.
+     * To fix that, we would usually use Database Row Locking (@Lock) or update queries:
+     * `UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?`
+     */
     public void reduceInventory(Long id, Integer quantity) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
 
+        // Prevent negative inventory
         if (product.getQuantity() < quantity) {
             throw new RuntimeException("Insufficient inventory for product. Available: " + product.getQuantity());
         }

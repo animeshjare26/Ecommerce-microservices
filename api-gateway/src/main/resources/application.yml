@@ -1,32 +1,138 @@
+# ==============================================================================
+# API GATEWAY CONFIGURATION
+# ==============================================================================
+# This file tells the API Gateway how to run and how to route traffic to the 
+# rest of the microservices.
+# ==============================================================================
+
 server:
-  port: 8080
+  # The port this gateway listens on. All external traffic from the frontend or mobile app hits this port (usually 8080).
+  port: ${SERVER_PORT}
 
 spring:
   application:
+    # The name this service registers as in Eureka. This makes it discoverable by other services.
     name: api-gateway
   config:
-    import: optional:configserver:http://localhost:8888/
+    # 12-FACTOR APP: We try to load centralized configuration from the config-server.
+    # The 'optional:' prefix means the gateway won't crash if the config-server isn't up yet.
+    # It will just use the default properties defined here.
+    import: optional:configserver:${CONFIG_SERVER_URL}
 
   cloud:
     gateway:
       discovery:
         locator:
+          # Automatically create routes for services registered in Eureka based on their service ID.
+          # (e.g., /user-service/** would automatically route to USER-SERVICE).
+          # This allows us to access services without defining manual routes below, but manual routes offer more control.
           enabled: true
+      
+      # MANUAL ROUTING RULES:
+      # This is how the Gateway knows where to send incoming requests.
       routes:
+        # Route 1: Auth Service
+        - id: auth-service
+          # lb:// means "Load Balancer". Instead of hardcoding a direct URL like "http://localhost:8081",
+          # the gateway asks Eureka for instances of "AUTH-SERVICE" and load-balances across all running instances.
+          uri: lb://AUTH-SERVICE
+          # Predicates are the conditions for matching a request. 
+          # Here, if the URL path starts with /auth/, route it to the Auth Service.
+          predicates:
+            - Path=/auth/**
+          # Filters allow modifying requests or responses, or enforcing security rules.
+          filters:
+            # RequestRateLimiter prevents DDoS attacks or excessive requests from a single user.
+            - name: RequestRateLimiter
+              args:
+                # How many requests a user is allowed per second to refill their bucket.
+                redis-rate-limiter.replenishRate: 10
+                # Maximum burst of requests allowed in a second before they get a 429 Too Many Requests error.
+                redis-rate-limiter.burstCapacity: 20
+                # How we identify the user. @ipKeyResolver means we limit by their IP Address.
+                key-resolver: "#{@ipKeyResolver}"
+            # CircuitBreaker prevents cascading failures if a downstream service goes down.
+            - name: CircuitBreaker
+              args:
+                name: authServiceCircuitBreaker
+                # If the circuit trips (opens), redirect the request to the gateway's fallback route instead of failing.
+                fallbackUri: forward:/fallback
+
+        # Route 2: User Service
         - id: user-service
           uri: lb://USER-SERVICE
           predicates:
             - Path=/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@ipKeyResolver}"
+            - name: CircuitBreaker
+              args:
+                name: userServiceCircuitBreaker
+                fallbackUri: forward:/fallback
+            
+        # Route 3: Product Service
         - id: product-service
           uri: lb://PRODUCT-SERVICE
           predicates:
             - Path=/products/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@ipKeyResolver}"
+            - name: CircuitBreaker
+              args:
+                name: productServiceCircuitBreaker
+                fallbackUri: forward:/fallback
+            
+        # Route 4: Order Service
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:
             - Path=/orders/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@ipKeyResolver}"
+            - name: CircuitBreaker
+              args:
+                name: orderServiceCircuitBreaker
+                fallbackUri: forward:/fallback
+
+  data:
+    redis:
+      # Redis is used by the Rate Limiter to keep track of request counts globally.
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+# Global Resilience4j Circuit Breaker Configurations
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        # Looks at the last 10 calls to evaluate the service's health.
+        slidingWindowSize: 10
+        # Wait for at least 5 calls before calculating the failure rate.
+        minimumNumberOfCalls: 5
+        # Allow 3 test calls in half-open state to see if the service recovered.
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        # Wait 5 seconds in the open state before trying to let requests through again (half-open state).
+        waitDurationInOpenState: 5s
+        # If 50% or more of those calls fail, the circuit opens (trips).
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
 
 eureka:
   client:
+    # Where to find the Eureka Discovery Server. The Gateway needs this to resolve the "lb://" URIs above into real IP addresses.
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_URL}

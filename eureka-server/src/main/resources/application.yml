@@ -1,15 +1,26 @@
+# ==============================================================================
+# EUREKA SERVER CONFIGURATION
+# ==============================================================================
+# This file configures the Service Registry itself.
+# ==============================================================================
+
 server:
-  port: 8761
+  # The default port for Eureka is 8761. All clients will try to connect here.
+  port: ${SERVER_PORT}
 
 spring:
   application:
     name: eureka-server
   config:
-    import: optional:configserver:http://localhost:8888/
+    # 12-FACTOR APP: Load centralized configuration from the config-server.
+    import: optional:configserver:${CONFIG_SERVER_URL}
 
 eureka:
   instance:
     hostname: localhost
   client:
+    # IMPORTANT: 
+    # Because this IS the Eureka Server, it doesn't need to register with itself.
+    # We set these to false to prevent it from complaining that it can't find another peer.
     register-with-eureka: false
     fetch-registry: false

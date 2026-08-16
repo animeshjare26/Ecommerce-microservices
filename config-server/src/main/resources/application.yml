@@ -1,13 +1,26 @@
+# ==============================================================================
+# CONFIG SERVER CONFIGURATION
+# ==============================================================================
+# This file tells the Config Server where to find the configuration files 
+# for all the other microservices in the cluster.
+# ==============================================================================
+
 server:
-  port: 8888
+  # The default port for Spring Cloud Config Server is 8888.
+  port: ${SERVER_PORT}
 
 spring:
   application:
     name: config-server
   profiles:
-    active: native # For simplicity, using filesystem instead of Git repository
+    # "native" profile means we are NOT using a Git repository (which is the default).
+    # Instead, we are serving config files straight from the local file system or classpath.
+    active: native
   cloud:
     config:
       server:
         native:
-          search-locations: classpath:/config/ # Where other services configs are stored
+          # This specifies the directory where the Config Server will look for files like
+          # "product-service.yml", "user-service.yml", etc.
+          # (Currently set to classpath:/config/ inside this project)
+          search-locations: classpath:/config/ 

@@ -16,7 +16,14 @@ public class Order {
     private Long userId;
     private Long productId;
     
-    // E-commerce specific fields
+    /**
+ * Order (The Digital Receipt)
+ * 
+ * WHY THIS EXISTS:
+ * This class directly maps to the `orders` table in the PostgreSQL database for this specific microservice.
+ * Notice that it only stores the `userId` and `productId`, not the full User or Product objects. 
+ * This is how microservices stay decoupled!
+ */
     private Integer quantity;
     private Double totalPrice;
     private String status; // PENDING, COMPLETED, FAILED
