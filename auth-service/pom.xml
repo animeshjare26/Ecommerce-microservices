@@ -55,7 +55,7 @@
         </dependency>
         <!--
           OpenFeign (Declarative REST Client)
-          ------------------------------------
+
           WHY WE ADDED THIS (User<->Auth profile sync feature):
           After the auth-service creates a new AuthUser (identity), it must tell the
           user-service to create the matching profile row (name/email/address) so the two
