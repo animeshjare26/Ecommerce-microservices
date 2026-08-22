@@ -43,6 +43,12 @@ public class AdminSeeder implements CommandLineRunner {
     @Value("${app.admin.password}")
     private String adminPassword;
 
+    // The admin's email. Since email is now a required (non-null, unique) identity field, the seeded
+    // admin MUST have one or the insert would fail. We give it a default so existing .env files keep
+    // working without a new variable; override it via APP_ADMIN_EMAIL when you want a real address.
+    @Value("${app.admin.email:admin@ecommerce.local}")
+    private String adminEmail;
+
     @Override
     public void run(String... args) {
         // 1. Seed Permissions if they don't exist
@@ -57,8 +63,9 @@ public class AdminSeeder implements CommandLineRunner {
         if (!userRepository.existsByUsername(adminUsername)) {
             AuthUser admin = new AuthUser();
             admin.setUsername(adminUsername);
-            admin.setPassword(passwordEncoder.encode(adminPassword)); 
-            
+            admin.setEmail(adminEmail); // required identity field (see AuthUser.email)
+            admin.setPassword(passwordEncoder.encode(adminPassword));
+
             // Assign both Admin and User roles
             admin.setUserRoles(List.of(adminRole, userRole));
             

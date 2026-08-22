@@ -59,3 +59,9 @@ ehthumbs.db
 Thumbs.db
 
 **/.env
+
+# Local tooling / indexes (machine-specific, not for the repo)
+.codegraph/
+.claude/
+.antigravity/
+.antigravity-ide/

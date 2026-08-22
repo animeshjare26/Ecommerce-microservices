@@ -47,4 +47,19 @@ public interface AuthService {
      * @return A map containing the new Access and Refresh tokens.
      */
     Map<TokenType, String> refreshAccessToken(TokenRequest tokenRequest);
+
+    /**
+     * Re-synchronises the user-service with this service's identities (the "safety net").
+     *
+     * WHY THIS EXISTS:
+     * Profile provisioning during registration is a "dual write" (we write to the auth DB and then
+     * make a network call to the user-service). Network calls can fail. If the user-service is
+     * momentarily down when someone registers, that person ends up with an identity but no profile.
+     * This method walks every active identity and re-sends a provisioning request for each, so the
+     * user-service can (idempotently) create any profiles it is missing. It is also how we backfill
+     * profiles for accounts that existed before this feature was added.
+     *
+     * @return the number of identities that were re-sent for provisioning.
+     */
+    int reconcileProfiles();
 }

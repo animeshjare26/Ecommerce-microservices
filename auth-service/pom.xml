@@ -53,6 +53,21 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-config</artifactId>
         </dependency>
+        <!--
+          OpenFeign (Declarative REST Client)
+          ------------------------------------
+          WHY WE ADDED THIS (User<->Auth profile sync feature):
+          After the auth-service creates a new AuthUser (identity), it must tell the
+          user-service to create the matching profile row (name/email/address) so the two
+          databases stay in sync. Instead of hand-writing RestTemplate/WebClient HTTP code,
+          Feign lets us declare a Java interface (see feign/UserProfileClient.java) and
+          Spring Cloud generates the HTTP call for us. It also integrates with Eureka, so we
+          address the target by its logical name ("USER-SERVICE") instead of a hardcoded URL.
+        -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
         <!-- Full Spring Security for SecurityFilterChain and Context -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

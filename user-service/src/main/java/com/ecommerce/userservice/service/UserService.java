@@ -1,5 +1,6 @@
 package com.ecommerce.userservice.service;
 
+import com.ecommerce.userservice.dto.ProvisionProfileRequest;
 import com.ecommerce.userservice.dto.UserRequestDto;
 import com.ecommerce.userservice.dto.UserResponseDto;
 import com.ecommerce.userservice.entity.User;
@@ -33,18 +34,51 @@ public class UserService {
     private final UserRepository userRepository;
 
     /**
-     * Maps incoming DTO to Entity and saves it.
+     * Creates or updates the profile that mirrors an auth-service identity ("provisioning").
+     *
+     * WHY THIS REPLACED THE OLD PUBLIC registerUser():
+     * Previously the public could POST /users/register and we'd auto-generate a brand-new id that
+     * had NOTHING to do with the person's auth identity. That is exactly the disconnect we are
+     * fixing. Now profiles are created by the auth-service (which supplies the id), so this method
+     * is INTERNAL and always receives the id to use.
+     *
+     * WHY IT IS AN IDEMPOTENT UPSERT (create-or-update, safe to repeat):
+     * The provisioning call can be retried — on a transient failure during registration, or by the
+     * reconciliation job. If we blindly inserted every time, retries would explode with duplicate-
+     * key errors. Instead we look up the id first:
+     *   - if no profile exists, we CREATE it, and
+     *   - if one already exists, we leave it in place (only filling gaps) and return it.
+     * Calling this twice with the same id therefore has the same effect as calling it once.
+     *
+     * @param request the profile to provision, INCLUDING the id to use as the primary key.
+     * @return the resulting profile as a response DTO.
      */
-    public UserResponseDto registerUser(UserRequestDto requestDto) { 
-        User user = new User();
-        user.setName(requestDto.getName());
-        user.setEmail(requestDto.getEmail());
-        user.setAddress(requestDto.getAddress());
-        
-        // Save to PostgreSQL via Spring Data JPA
+    public UserResponseDto provisionProfile(ProvisionProfileRequest request) {
+        // Look up any existing profile with this id. `orElseGet` builds a fresh User only if absent.
+        User user = userRepository.findById(request.getId())
+                .orElseGet(() -> {
+                    User fresh = new User();
+                    // CRITICAL: set the primary key to the auth user's id (do NOT auto-generate).
+                    fresh.setId(request.getId());
+                    return fresh;
+                });
+
+        // Email is auth-owned; we always keep our replicated copy aligned with what auth sends.
+        if (request.getEmail() != null) {
+            user.setEmail(request.getEmail());
+        }
+        // Name/address are profile-owned. On first creation we take whatever the caller sent. On a
+        // later reconciliation call these may be null, so we only overwrite when a value is provided
+        // — that way reconciliation never wipes profile data the user has since filled in.
+        if (request.getName() != null) {
+            user.setName(request.getName());
+        }
+        if (request.getAddress() != null) {
+            user.setAddress(request.getAddress());
+        }
+
+        // save() performs an INSERT if the id is new, or an UPDATE if the row already exists.
         User savedUser = userRepository.save(user);
-        
-        // Convert back to a DTO so we don't expose database internals to the client
         return mapToResponseDto(savedUser);
     }
     
@@ -71,18 +105,24 @@ public class UserService {
     }
 
     /**
-     * Replaces the user's data with the incoming payload.
+     * Updates the PROFILE-owned fields of a user (name, address).
+     *
+     * WHY WE DO NOT UPDATE EMAIL HERE (important):
+     * Email is an identity/credential field owned by the auth-service. If we let users change their
+     * email here, this service's copy would silently disagree with the auth-service's login email —
+     * the two would drift out of sync, which is the exact bug this whole design prevents. So we
+     * DELIBERATELY IGNORE any email in the incoming payload. Changing an email must be done through
+     * the auth-service, which then propagates the new value down to our replicated copy.
      */
     public UserResponseDto updateProfile(Long id, UserRequestDto requestDto) {
         // 1. Fetch existing user
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-        
-        // 2. Modify data
+
+        // 2. Modify ONLY profile-owned fields. Note: requestDto.getEmail() is intentionally ignored.
         user.setName(requestDto.getName());
-        user.setEmail(requestDto.getEmail());
         user.setAddress(requestDto.getAddress());
-        
+
         // 3. Save updates
         User updatedUser = userRepository.save(user);
         return mapToResponseDto(updatedUser);

@@ -76,7 +76,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // EXTREMELY IMPORTANT: Allow public, unauthenticated access to the login and registration endpoints.
                 .requestMatchers("/auth/login", "/auth/register").permitAll()
-                
+
+                // Internal/ops endpoints (e.g. /auth/internal/reconcile) bypass the JWT filter because
+                // they are not called by end users. They are NOT actually open, though: the controller
+                // enforces the shared "X-Internal-Key" header itself before doing any work.
+                .requestMatchers("/auth/internal/**").permitAll()
+
                 // Force every OTHER request hitting this microservice to have a valid JWT.
                 .anyRequest().authenticated()
             )

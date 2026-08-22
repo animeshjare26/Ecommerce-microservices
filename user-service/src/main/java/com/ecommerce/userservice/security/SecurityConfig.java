@@ -43,7 +43,12 @@ public class SecurityConfig {
             
             // 2. Define URL access rules
             .authorizeHttpRequests(auth -> auth
-                // Force every single request to this microservice to be authenticated.
+                // Internal service-to-service endpoints (e.g. profile provisioning) do NOT carry an
+                // end-user JWT, so we exempt them from the JWT check here. They are NOT open, though:
+                // InternalUserController enforces the shared "X-Internal-Key" header before doing work.
+                .requestMatchers("/users/internal/**").permitAll()
+
+                // Force every OTHER request to this microservice to be authenticated via JWT.
                 .anyRequest().authenticated()
             )
             

@@ -35,3 +35,10 @@ app:
   admin:
     username: ${ADMIN_USERNAME}
     password: ${ADMIN_PASSWORD}
+
+# Shared secret for service-to-service ("internal") calls. The auth-service stamps this value onto
+# its Feign requests to the user-service, and both the user-service and this service's own
+# /auth/internal/** endpoints verify it. It MUST be identical across all services. Never commit the
+# real value; provide it via the INTERNAL_API_KEY environment variable / .env file.
+internal:
+  api-key: ${INTERNAL_API_KEY}

@@ -45,8 +45,22 @@ public interface AuthUserRepository extends JpaRepository<AuthUser, Long> {
      * 
      * It automatically generates this SQL:
      * `SELECT count(*) FROM auth_users WHERE username = ?`
-     * 
+     *
      * @return true if the username exists, false otherwise.
      */
     boolean existsByUsername(String username);
+
+    /**
+     * Checks if an email address is already registered.
+     *
+     * WHY WE NEED THIS:
+     * Email is now a unique identity field (see AuthUser.email). Before creating a new account
+     * we call this to reject duplicate-email sign-ups with a friendly 409 CONFLICT, instead of
+     * letting the request hit the database and blow up with an ugly unique-constraint violation.
+     *
+     * Generated SQL: `SELECT count(*) FROM auth_users WHERE email = ?`
+     *
+     * @return true if the email is already taken, false otherwise.
+     */
+    boolean existsByEmail(String email);
 }

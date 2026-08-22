@@ -31,18 +31,15 @@ public class UserController {
     
     private final UserService userService;
 
-    /**
-     * Creates a new user profile.
-     * Note: This usually happens right after a user registers in the `auth-service`.
-     * Often, systems use Kafka/RabbitMQ to automatically create this profile when an auth-user is created,
-     * but here it is exposed as a synchronous REST endpoint.
+    /*
+     * NOTE: The old public "POST /users/register" endpoint has been REMOVED.
+     *
+     * WHY: Letting the public create profiles directly is what caused the auth<->user disconnect —
+     * those profiles got a random auto-generated id unrelated to the person's auth identity. Profiles
+     * are now created by the auth-service during sign-up, via the internal provisioning endpoint (see
+     * InternalUserController). The public surface of this service is now read/update only.
      */
-    @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public UserResponseDto register(@RequestBody UserRequestDto requestDto) { 
-        return userService.registerUser(requestDto); 
-    }
-    
+
     /**
      * Fetches a specific user's profile by their ID.
      */

@@ -21,3 +21,10 @@ eureka:
 
 jwt:
   secret: ${JWT_SECRET}
+
+# Shared secret for service-to-service ("internal") calls. The user-service checks this on its
+# /users/internal/** endpoints to confirm the caller is another one of our services (the auth-service)
+# and not the public internet. It MUST be identical to the auth-service's INTERNAL_API_KEY. Provide
+# it via the INTERNAL_API_KEY environment variable / .env file; never commit the real value.
+internal:
+  api-key: ${INTERNAL_API_KEY}

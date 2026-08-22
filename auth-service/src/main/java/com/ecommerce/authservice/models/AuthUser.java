@@ -8,6 +8,7 @@ import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 7. AuthUser (The Database Entity)
@@ -45,9 +46,25 @@ public class AuthUser {
     @Column(nullable = false, unique = true)
     private String username;
 
+    /**
+     * The user's email address.
+     *
+     * WHY EMAIL LIVES HERE (AND NOT ONLY IN user-service):
+     * In our architecture we decided that email is an IDENTITY / CREDENTIAL field, not a
+     * pure profile field. It is the value people use to log in and to recover their account,
+     * so the auth-service is its single source of truth ("source of truth" = the one place
+     * allowed to change it). The user-service still keeps a COPY of the email for display and
+     * contact purposes, but that copy is read-only and is kept in sync FROM here.
+     *
+     * unique = true  -> no two accounts may share an email (prevents duplicate identities).
+     * nullable = false -> every account must have an email.
+     */
+    @Column(nullable = false, unique = true)
+    private String email;
+
     // SECURITY: This stores the BCrypt hash. NEVER store or log the plain text password.
     @Column(nullable = false)
-    private String password; 
+    private String password;
 
     // A user can have many roles, and a role can belong to many users.
     // This automatically creates a join table called `user_roles` in the database.
@@ -57,7 +74,7 @@ public class AuthUser {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
-    private java.util.List<Role> userRoles;
+    private List<Role> userRoles;
 
     // Used by our Soft Delete pattern above to mark accounts as deactivated.
     @Column(name = "is_active", nullable = false)
